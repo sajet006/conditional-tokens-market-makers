@@ -7,6 +7,8 @@ const WETH9 = artifacts.require('WETH9')
 const FixedProductMarketMakerFactory = artifacts.require('FixedProductMarketMakerFactory')
 const FixedProductMarketMaker = artifacts.require('FixedProductMarketMaker')
 
+// TODO: Add unit test case for updatig the admin address
+
 contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trader, investor2]) {
     const questionId = randomHex(32)
     const numOutcomes = 64
@@ -40,6 +42,9 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
         ]
         const fixedProductMarketMakerAddress = await fixedProductMarketMakerFactory.createFixedProductMarketMaker.call(...createArgs)
         const createTx = await fixedProductMarketMakerFactory.createFixedProductMarketMaker(...createArgs);
+        
+        console.log('JSON.stringify : ',JSON.stringify(createTx));
+        
         expectEvent.inLogs(createTx.logs, 'FixedProductMarketMakerCreation', {
             creator,
             fixedProductMarketMaker: fixedProductMarketMakerAddress,
@@ -52,18 +57,27 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
         fixedProductMarketMaker = await FixedProductMarketMaker.at(fixedProductMarketMakerAddress)
     })
 
-    const addedFunds1 = toBN(10e18)
+    const addedFunds1 = toBN(10e18);
+
+    const expectedAdminFees = toBN(200000000000000000); // 2 percentage
+    const expectedMintedAmount = addedFunds1.sub(expectedAdminFees);
+    console.log('expectedAdminFees : ',expectedAdminFees.toString());
     const initialDistribution = []
     const expectedFundedAmounts = new Array(64).fill(addedFunds1)
     step('can be funded', async function() {
+
+      console.log('before admin balance :', (await fixedProductMarketMaker.balanceOf.call(creator)).toString());
+
         await collateralToken.deposit({ value: addedFunds1, from: investor1 });
         await collateralToken.approve(fixedProductMarketMaker.address, addedFunds1, { from: investor1 });
         const fundingTx = await fixedProductMarketMaker.addFunding(addedFunds1, initialDistribution, { from: investor1 });
+      console.log('after admin balance :', (await fixedProductMarketMaker.balanceOf.call(creator)).toString());
 
+      console.log('fundingTx:', JSON.stringify(fundingTx));
         expectEvent.inLogs(fundingTx.logs, 'FPMMFundingAdded', {
             funder: investor1,
             // amountsAdded: expectedFundedAmounts,
-            sharesMinted: addedFunds1,
+            sharesMinted: expectedMintedAmount,
         });
         const { amountsAdded } = fundingTx.logs.find(
             ({ event }) => event === 'FPMMFundingAdded'
@@ -74,7 +88,9 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
         }
 
         (await collateralToken.balanceOf(investor1)).should.be.a.bignumber.equal("0");
-        (await fixedProductMarketMaker.balanceOf(investor1)).should.be.a.bignumber.equal(addedFunds1);
+        (await fixedProductMarketMaker.balanceOf(investor1)).should.be.a.bignumber.equal(expectedMintedAmount);
+
+      (await fixedProductMarketMaker.balanceOf(creator)).should.be.a.bignumber.equal(expectedAdminFees);
 
         for(let i = 0; i < positionIds.length; i++) {
             (await conditionalTokens.balanceOf(fixedProductMarketMaker.address, positionIds[i]))
@@ -165,11 +181,12 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
     });
 
     const burnedShares1 = toBN(5e18)
+    const expectedSharedBurned = burnedShares1.sub(expectedAdminFees); 
     step('can be defunded', async function() {
         await fixedProductMarketMaker.removeFunding(burnedShares1, { from: investor1 });
 
         (await collateralToken.balanceOf(investor1)).should.be.a.bignumber.gt("0");
-        (await fixedProductMarketMaker.balanceOf(investor1)).should.be.a.bignumber.equal(addedFunds1.sub(burnedShares1));
+        (await fixedProductMarketMaker.balanceOf(investor1)).should.be.a.bignumber.equal(expectedSharedBurned);
 
         for(let i = 0; i < positionIds.length; i++) {
             let newMarketMakerBalance = await conditionalTokens.balanceOf(fixedProductMarketMaker.address, positionIds[i])

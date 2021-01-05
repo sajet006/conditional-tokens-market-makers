@@ -24,13 +24,16 @@ contract FixedProductMarketMakerFactory is ConstructedCloneFactory, FixedProduct
         implementationMaster = new FixedProductMarketMaker();
     }
 
+    event TestCloneConstructor(bytes consData, address _collateralToken, address _admin);
+
     function cloneConstructor(bytes calldata consData) external {
         (
             ConditionalTokens _conditionalTokens,
             IERC20 _collateralToken,
             bytes32[] memory _conditionIds,
-            uint _fee
-        ) = abi.decode(consData, (ConditionalTokens, IERC20, bytes32[], uint));
+            uint _fee,
+            address _admin
+        ) = abi.decode(consData, (ConditionalTokens, IERC20, bytes32[], uint, address));
 
         _supportedInterfaces[_INTERFACE_ID_ERC165] = true;
         _supportedInterfaces[
@@ -38,11 +41,14 @@ contract FixedProductMarketMakerFactory is ConstructedCloneFactory, FixedProduct
             ERC1155TokenReceiver(0).onERC1155BatchReceived.selector
         ] = true;
 
+        emit TestCloneConstructor(consData, address(_collateralToken), _admin);
+
         conditionalTokens = _conditionalTokens;
         collateralToken = _collateralToken;
         conditionIds = _conditionIds;
         fee = _fee;
-
+        admin = _admin;
+        adminFeePercentage = 20000000000000000;
         uint atomicOutcomeSlotCount = 1;
         outcomeSlotCounts = new uint[](conditionIds.length);
         for (uint i = 0; i < conditionIds.length; i++) {
@@ -94,7 +100,8 @@ contract FixedProductMarketMakerFactory is ConstructedCloneFactory, FixedProduct
                 conditionalTokens,
                 collateralToken,
                 conditionIds,
-                fee
+                fee,
+                msg.sender
             ))
         );
         emit FixedProductMarketMakerCreation(

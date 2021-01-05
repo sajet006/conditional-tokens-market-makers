@@ -61,6 +61,10 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
     mapping (address => uint256) withdrawnFees;
     uint internal totalWithdrawnFees;
 
+    address public admin;
+
+    uint adminFeePercentage; // 2%
+
     function getPoolBalances() private view returns (uint[] memory) {
         address[] memory thises = new address[](positionIds.length);
         for(uint i = 0; i < positionIds.length; i++) {
@@ -145,6 +149,8 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
         }
     }
 
+    event mintingInfo(uint mintMinusAdminFees, uint adminFees, uint mintAmount, uint multipliedAmount, uint adminFeePercentage);
+
     function addFunding(uint addedFunds, uint[] calldata distributionHint)
         external
     {
@@ -193,7 +199,15 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
         require(collateralToken.approve(address(conditionalTokens), addedFunds), "approval for splits failed");
         splitPositionThroughAllConditions(addedFunds);
 
-        _mint(msg.sender, mintAmount);
+        uint multipliedAmount = mintAmount.mul(adminFeePercentage); 
+
+        uint adminFees = (mintAmount.mul(adminFeePercentage)) / (ONE); 
+
+        uint mintAmountMinusAdminFees = mintAmount.sub(adminFees);
+
+        _mint(msg.sender, mintAmountMinusAdminFees);
+
+        _mint(admin, adminFees);
 
         conditionalTokens.safeBatchTransferFrom(address(this), msg.sender, positionIds, sendBackAmounts, "");
 
@@ -202,7 +216,9 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
             sendBackAmounts[i] = addedFunds.sub(sendBackAmounts[i]);
         }
 
-        emit FPMMFundingAdded(msg.sender, sendBackAmounts, mintAmount);
+        emit FPMMFundingAdded(msg.sender, sendBackAmounts, mintAmountMinusAdminFees);
+
+        emit mintingInfo(mintAmountMinusAdminFees, adminFees, mintAmount, multipliedAmount, adminFeePercentage);
     }
 
     function removeFunding(uint sharesToBurn)
@@ -333,6 +349,20 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
 
         emit FPMMSell(msg.sender, returnAmount, feeAmount, outcomeIndex, outcomeTokensToSell);
     }
+
+    modifier onlyAdmin(address _admin) {
+        require(admin == _admin, "Unauthorized admin address");
+        _;
+    }
+
+    function updateAdmin(address _admin) public onlyAdmin(msg.sender) {
+        
+        require(admin != _admin, "Admin address set is already same")
+
+        admin = _admin;
+
+    }
+
 }
 
 
@@ -383,4 +413,8 @@ contract FixedProductMarketMakerData {
     uint[] internal positionIds;
     mapping (address => uint256) internal withdrawnFees;
     uint internal totalWithdrawnFees;
+
+    address internal admin;
+
+    uint internal adminFeePercentage; // 2%
 }
