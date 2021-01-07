@@ -47,7 +47,7 @@ contract FPMMDeterministicFactory is Create2CloneFactory, FixedProductMarketMake
         conditionIds = _conditionIds;
         fee = _fee;
         admin = _admin;
-        adminFeePercentage = 2000000000000000;
+        adminFeePercentage = 20000000000000000;
 
         emit TestCloneConstructor(consData, admin);
 
