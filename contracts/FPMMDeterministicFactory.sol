@@ -25,13 +25,16 @@ contract FPMMDeterministicFactory is Create2CloneFactory, FixedProductMarketMake
         implementationMaster = new FixedProductMarketMaker();
     }
 
+    event TestCloneConstructor(bytes _consData, address _admin);
+
     function cloneConstructor(bytes calldata consData) external {
         (
             ConditionalTokens _conditionalTokens,
             IERC20 _collateralToken,
             bytes32[] memory _conditionIds,
-            uint _fee
-        ) = abi.decode(consData, (ConditionalTokens, IERC20, bytes32[], uint));
+            uint _fee,
+            address _admin
+        ) = abi.decode(consData, (ConditionalTokens, IERC20, bytes32[], uint, address));
 
         _supportedInterfaces[_INTERFACE_ID_ERC165] = true;
         _supportedInterfaces[
@@ -43,6 +46,10 @@ contract FPMMDeterministicFactory is Create2CloneFactory, FixedProductMarketMake
         collateralToken = _collateralToken;
         conditionIds = _conditionIds;
         fee = _fee;
+        admin = _admin;
+        adminFeePercentage = 2000000000000000;
+
+        emit TestCloneConstructor(consData, admin);
 
         uint atomicOutcomeSlotCount = 1;
         outcomeSlotCounts = new uint[](conditionIds.length);
@@ -127,7 +134,8 @@ contract FPMMDeterministicFactory is Create2CloneFactory, FixedProductMarketMake
                 conditionalTokens,
                 collateralToken,
                 conditionIds,
-                fee
+                fee,
+                msg.sender
             ))
         );
         emit FixedProductMarketMakerCreation(

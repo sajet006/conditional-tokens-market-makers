@@ -7,9 +7,8 @@ const WETH9 = artifacts.require('WETH9')
 const FixedProductMarketMakerFactory = artifacts.require('FixedProductMarketMakerFactory')
 const FixedProductMarketMaker = artifacts.require('FixedProductMarketMaker')
 
-// TODO: Add unit test case for updatig the admin address
 
-contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trader, investor2]) {
+contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trader, investor2, admin2]) {
     const questionId = randomHex(32)
     const numOutcomes = 64
     const conditionId = getConditionId(oracle, questionId, numOutcomes)
@@ -59,6 +58,7 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
 
     const addedFunds1 = toBN(10e18);
 
+    // Hard-coded because bn.js doesnt support floating point operations.
     const expectedAdminFees = toBN(200000000000000000); // 2 percentage
     const expectedMintedAmount = addedFunds1.sub(expectedAdminFees);
     console.log('expectedAdminFees : ',expectedAdminFees.toString());
@@ -66,14 +66,10 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
     const expectedFundedAmounts = new Array(64).fill(addedFunds1)
     step('can be funded', async function() {
 
-      console.log('before admin balance :', (await fixedProductMarketMaker.balanceOf.call(creator)).toString());
-
         await collateralToken.deposit({ value: addedFunds1, from: investor1 });
         await collateralToken.approve(fixedProductMarketMaker.address, addedFunds1, { from: investor1 });
         const fundingTx = await fixedProductMarketMaker.addFunding(addedFunds1, initialDistribution, { from: investor1 });
-      console.log('after admin balance :', (await fixedProductMarketMaker.balanceOf.call(creator)).toString());
 
-      console.log('fundingTx:', JSON.stringify(fundingTx));
         expectEvent.inLogs(fundingTx.logs, 'FPMMFundingAdded', {
             funder: investor1,
             // amountsAdded: expectedFundedAmounts,
@@ -202,4 +198,13 @@ contract('FixedProductMarketMaker', function([, creator, oracle, investor1, trad
             marketMakerPool[i] = newMarketMakerBalance;
         }
     })
+
+  // Custom added  
+  step('only admin can change admin', async function () {
+    console.log('admin2 : ', admin2);
+
+     await fixedProductMarketMaker.updateAdmin(admin2, { from: creator });
+
+    (await fixedProductMarketMaker.admin()).should.be.equal(admin2);
+  })
 })

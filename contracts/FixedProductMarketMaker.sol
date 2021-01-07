@@ -149,6 +149,7 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
         }
     }
 
+    // TODO: remove events used for debugging
     event mintingInfo(uint mintMinusAdminFees, uint adminFees, uint mintAmount, uint multipliedAmount, uint adminFeePercentage);
 
     function addFunding(uint addedFunds, uint[] calldata distributionHint)
@@ -194,6 +195,9 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
 
             mintAmount = addedFunds;
         }
+
+        // TODO: Discuss need of below check with tejas 
+        // require(mintAmount > 100, "Mint amount must be greater than 100");
 
         require(collateralToken.transferFrom(msg.sender, address(this), addedFunds), "funding transfer failed");
         require(collateralToken.approve(address(conditionalTokens), addedFunds), "approval for splits failed");
@@ -357,7 +361,7 @@ contract FixedProductMarketMaker is ERC20, ERC1155TokenReceiver {
 
     function updateAdmin(address _admin) public onlyAdmin(msg.sender) {
         
-        require(admin != _admin, "Admin address set is already same")
+        require(admin != _admin, "Admin address set is already same");
 
         admin = _admin;
 
